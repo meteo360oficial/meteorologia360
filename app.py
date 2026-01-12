@@ -1,141 +1,68 @@
 import streamlit as st
 from supabase import create_client, Client
-import pandas as pd
-import datetime
 
-# 1. CONEXÃO
-SUPABASE_URL = "https://edaxcbqgjxnebpioanjf.supabase.co"
-SUPABASE_KEY = "sb_publishable_oMpyFsCZS_YEis0iIYjAEQ_H7EWFJmj"
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# --- CONFIGURAÇÃO DO BANCO (MANTENHA SUAS CHAVES AQUI) ---
+# Se você usa segredos do Streamlit, mantenha como está abaixo:
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
+supabase: Client = create_client(url, key)
 
-st.set_page_config(page_title="Relatos de tempo severo | Meteorologia360 - METEO", page_icon="⛈️", layout="wide")
+st.set_page_config(page_title="Meteorologia 360", page_icon="⛈️")
+st.title("⛈️ Meteorologia 360 - Sistema de Monitoramento")
 
-# TÍTULO E ABAS
-st.markdown("<h1 style='text-align: center; color: #1E3D59;'>⛈️ Relatos de tempo severo | Meteorologia360 - METEO</h1>", unsafe_allow_html=True)
-aba_registro, aba_dashboard = st.tabs(["📍 Registrar Ocorrência", "📊 Painel de Monitoramento"])
+# --- CRIAÇÃO DAS ABAS ---
+aba_registrar, aba_monitorar = st.tabs(["📝 Registrar Ocorrência", "📊 Painel de Controle"])
 
-# --- ABA 1: REGISTRO ---
-with aba_registro:
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        with st.container(border=True):
-            cidade = st.text_input("Cidade *")
-            estado = st.selectbox("Estado", ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"], index=7)
-            evento = st.selectbox("Evento", ["Granizo", "Vendaval", "Tornado", "Raios", "Alagamento", "Outro"])
-            detalhes = st.text_area("Descrição do ocorrido")
+# --- ABA 1: REGISTRAR (O que você pediu agora) ---
+with aba_registrar:
+    st.header("Registrar Tempo Severo")
+    with st.form("form_evento", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            cidade = st.text_input("📍 Cidade:", placeholder="Ex: Marataízes")
+            estado = st.selectbox("Estado:", ["ES", "RJ", "MG", "SP", "Outro"])
+        with col2:
+            evento = st.selectbox("⚠️ Tipo de Evento:", ["Chuva Forte", "Granizo", "Vendaval", "Raios", "Inundação"])
+            data = st.date_input("Data da Ocorrência")
 
-    with col2:
-        with st.container(border=True):
-            lat = st.text_input("Latitude (Opcional)")
-            lon = st.text_input("Longitude (Opcional)")
-            arquivo = st.file_uploader("📸 Enviar Foto da Ocorrência", type=['jpg', 'png', 'jpeg'])
+        detalhes = st.text_area("📄 Descrição Detalhada:", placeholder="Conte o que aconteceu...")
+        
+        botao_enviar = st.form_submit_button("Enviar Registro para o Sistema 🚀")
 
-    if st.button("🚀 ENVIAR RELATO COMPLETO"):
-        if cidade:
-            url_publica = None
-            
-            # LÓGICA DE UPLOAD DA FOTO
-            if arquivo:
-                try:
-                    nome_arquivo = f"{datetime.datetime.now().timestamp()}_{arquivo.name}"
-                    # Envia para o bucket fotos_clima
-                    supabase.storage.from_("fotos_clima").upload(nome_arquivo, arquivo.getvalue())
-                    # Pega o link da foto
-                    url_publica = supabase.storage.from_("fotos_clima").get_public_url(nome_arquivo)
-                except Exception as e:
-                    st.error(f"Erro ao subir imagem: {e}")
-
-            # SALVANDO NO BANCO
-            dados = {
-                "cidade": cidade, 
-                "estado": estado, 
-                "evento": evento, 
-                "detalhes": detalhes,
-                "url_foto": url_publica # Aqui salva o link da imagem!
-            }
-            if lat and lon:
-                dados["evento"] = f"{evento} [GPS: {lat},{lon}]"
-
-            try:
-                supabase.table("relatos_tempo").insert(dados).execute()
-                st.balloons()
-                st.success("✅ Relato enviado com sucesso!")
-            except Exception as e:
-                st.error(f"Erro ao salvar dados: {e}")
+    if botao_enviar:
+        if cidade and detalhes:
+            dados = {"cidade": cidade, "estado": estado, "evento": evento, "detalhes": detalhes}
+            supabase.table("relatos_tempo").insert(dados).execute()
+            st.success(f"✅ Sucesso! Ocorrência em {cidade} foi registrada.")
         else:
-            st.warning("Preencha os campos obrigatórios!")
+            st.error("❌ Por favor, preencha a cidade e a descrição.")
 
-# --- ABA 2: DASHBOARD ---
-with aba_dashboard:
-    st.subheader("🕵️ Últimos Relatos com Evidências")
-    try:
-        res = supabase.table("relatos_tempo").select("*").order("created_at", desc=True).limit(15).execute()
-        if res.data:
-            for item in res.data:
-                with st.expander(f"📍 {item['cidade']} - {item['evento']} ({item['created_at'][:10]})"):
-                    c1, c2 = st.columns([1, 2])
-                    with c1:
-                        if item.get('url_foto'):
-                            st.image(item['url_foto'], use_container_width=True)
-                        else:
-                            st.info("Sem foto disponível")
-                    with c2:
-                        st.write(f"**Estado:** {item['estado']}")
-                        st.write(f"**Relato:** {item['detalhes']}")
-        else:
-            st.info("Nenhum dado encontrado.")
-    except Exception as e:
-
-        st.error(f"Erro ao carregar painel: {e}")
-
-# --- BOTÃO DE RELATÓRIO PARA GOOGLE DOCS ---
-st.sidebar.markdown("---")
-st.sidebar.subheader("Relatórios")
-try:
-    # Busca os dados para o relatório
-    rel_res = supabase.table("relatos_tempo").select("*").order("id", desc=True).execute()
-    if rel_res.data:
-        html_doc = "<html><head><meta charset='utf-8'></head><body>"
-        html_doc += "<h1>Relatório de Ocorrências - Meteorologia 360</h1>"
-        for r in rel_res.data:
-            html_doc += f"<h3>📍 {r['cidade']} - {r['estado']}</h3>"
-            html_doc += f"<p><b>Evento:</b> {r['evento']}<br>"
-            html_doc += f"<b>Descrição:</b> {r['detalhes']}</p>"
-            if r.get('url_foto'):
-                html_doc += f"<img src='{r['url_foto']}' width='300'><br>"
-            html_doc += "<hr>"
+# --- ABA 2: MONITORAR E RELATÓRIO ---
+with aba_monitorar:
+    st.header("🕵️ Relatos Recebidos")
+    
+    # Buscar dados do banco
+    res = supabase.table("relatos_tempo").select("*").order("id", desc=True).execute()
+    
+    if res.data:
+        # Criar o arquivo para o Google Docs
+        html_doc = "<html><head><meta charset='utf-8'></head><body><h1>Relatório Clima</h1>"
+        for r in res.data:
+            html_doc += f"<h3>📍 {r['cidade']} - {r['evento']}</h3><p>{r['detalhes']}</p><hr>"
         html_doc += "</body></html>"
 
-        st.sidebar.download_button(
-            label="📄 Baixar para Google Docs",
+        # Botão de Baixar
+        st.download_button(
+            label="📄 Baixar Relatório para Google Docs",
             data=html_doc,
             file_name="relatorio_meteorologia.html",
             mime="text/html"
         )
-except Exception as e:
-    pass
-
-# --- ADICIONE ISSO NO FINAL DO ARQUIVO, SEM ESPAÇOS NO INÍCIO DA LINHA ---
-
-st.sidebar.divider()
-st.sidebar.subheader("Relatórios")
-
-# Busca os dados do Supabase
-try:
-    dados_relatorio = supabase.table("relatos_tempo").select("*").execute()
-    if dados_relatorio.data:
-        # Cria o HTML do relatório
-        html_final = "<h1>Relatório Meteorologia 360</h1>"
-        for r in dados_relatorio.data:
-            html_final += f"<h3>{r['cidade']}</h3><p>{r['detalhes']}</p><hr>"
         
-        # Cria o botão de download
-        st.sidebar.download_button(
-            label="📄 Baixar para Google Docs",
-            data=html_final,
-            file_name="relatorio.html",
-            mime="text/html"
-        )
-except:
-    st.sidebar.error("Erro ao gerar botão de relatório")
-
+        st.divider()
+        
+        # Mostrar os cards na tela
+        for r in res.data:
+            with st.container(border=True):
+                st.subheader(f"{r['evento']} em {r['cidade']} - {r['estado']}")
+                st.write(r['detalhes'])
