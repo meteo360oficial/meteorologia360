@@ -85,4 +85,32 @@ with aba_dashboard:
         else:
             st.info("Nenhum dado encontrado.")
     except Exception as e:
+
         st.error(f"Erro ao carregar painel: {e}")
+
+# --- BOTÃO DE RELATÓRIO PARA GOOGLE DOCS ---
+st.sidebar.markdown("---")
+st.sidebar.subheader("Relatórios")
+try:
+    # Busca os dados para o relatório
+    rel_res = supabase.table("relatos_tempo").select("*").order("id", desc=True).execute()
+    if rel_res.data:
+        html_doc = "<html><head><meta charset='utf-8'></head><body>"
+        html_doc += "<h1>Relatório de Ocorrências - Meteorologia 360</h1>"
+        for r in rel_res.data:
+            html_doc += f"<h3>📍 {r['cidade']} - {r['estado']}</h3>"
+            html_doc += f"<p><b>Evento:</b> {r['evento']}<br>"
+            html_doc += f"<b>Descrição:</b> {r['detalhes']}</p>"
+            if r.get('url_foto'):
+                html_doc += f"<img src='{r['url_foto']}' width='300'><br>"
+            html_doc += "<hr>"
+        html_doc += "</body></html>"
+
+        st.sidebar.download_button(
+            label="📄 Baixar para Google Docs",
+            data=html_doc,
+            file_name="relatorio_meteorologia.html",
+            mime="text/html"
+        )
+except Exception as e:
+    pass
