@@ -114,3 +114,28 @@ try:
         )
 except Exception as e:
     pass
+
+# --- ADICIONE ISSO NO FINAL DO ARQUIVO, SEM ESPAÇOS NO INÍCIO DA LINHA ---
+
+st.sidebar.divider()
+st.sidebar.subheader("Relatórios")
+
+# Busca os dados do Supabase
+try:
+    dados_relatorio = supabase.table("relatos_tempo").select("*").execute()
+    if dados_relatorio.data:
+        # Cria o HTML do relatório
+        html_final = "<h1>Relatório Meteorologia 360</h1>"
+        for r in dados_relatorio.data:
+            html_final += f"<h3>{r['cidade']}</h3><p>{r['detalhes']}</p><hr>"
+        
+        # Cria o botão de download
+        st.sidebar.download_button(
+            label="📄 Baixar para Google Docs",
+            data=html_final,
+            file_name="relatorio.html",
+            mime="text/html"
+        )
+except:
+    st.sidebar.error("Erro ao gerar botão de relatório")
+
