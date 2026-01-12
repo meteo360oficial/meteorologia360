@@ -3,9 +3,9 @@ from supabase import create_client, Client
 
 # --- CONFIGURAÇÃO DO BANCO (MANTENHA SUAS CHAVES AQUI) ---
 # Se você usa segredos do Streamlit, mantenha como está abaixo:
-url = st.secrets["SUPABASE_URL"]
-key = st.secrets["SUPABASE_KEY"]
-supabase: Client = create_client(url, key)
+SUPABASE_URL = "https://edaxcbgjxnebpioanjf.supabase.co"
+SUPABASE_KEY = "sb_publishable_aMpyfsCZS_YEIs0IIYjaeQ_H7EWfJmj"
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 st.set_page_config(page_title="Meteorologia 360", page_icon="⛈️")
 st.title("⛈️ Meteorologia 360 - Sistema de Monitoramento")
@@ -66,3 +66,4 @@ with aba_monitorar:
             with st.container(border=True):
                 st.subheader(f"{r['evento']} em {r['cidade']} - {r['estado']}")
                 st.write(r['detalhes'])
+
